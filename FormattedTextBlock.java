@@ -110,6 +110,25 @@ public class FormattedTextBlock{ //<>//
     totalHeight = currY + currDescent;
   }
   
+  public void constrainHeight(int maxHeight, PGraphics pg){
+    boolean nochange = false;
+    while(totalHeight > maxHeight && !nochange){
+      nochange = true;
+      float overby = totalHeight / (float)maxHeight;
+      for(int i = 0; i < text.length; i++){
+        int lastSize = text[i].fontSize;
+        text[i].fontSize /= overby;
+        if (text[i].fontSize == lastSize && text[i].fontSize > 1){
+          text[i].fontSize--;
+        }
+        nochange &= (text[i].fontSize == lastSize);
+      }
+      if (!nochange){
+        calculateLines(pg);
+      }
+    }
+  }
+  
   public void render(PGraphics g){
     FormattedLine currLine;
     for (int i = 0; i < lines.size(); i++) {
