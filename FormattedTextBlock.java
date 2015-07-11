@@ -114,7 +114,7 @@ public class FormattedTextBlock{ //<>//
     boolean nochange = false;
     while(totalHeight > maxHeight && !nochange){
       nochange = true;
-      float overby = totalHeight / (float)maxHeight;
+      float overby = Math.min(totalHeight / (float)maxHeight, 2);
       for(int i = 0; i < text.length; i++){
         int lastSize = text[i].fontSize;
         text[i].fontSize /= overby;
@@ -135,7 +135,7 @@ public class FormattedTextBlock{ //<>//
       currLine = lines.get(i);
       for (int w = 0; w < currLine.texts.size(); w++) {
         FormattedText currContig = currLine.texts.get(w);
-        g.textFont(currContig.font);
+        g.textFont(currContig.font, currContig.fontSize);
         g.text(currContig.text, currContig.startX, currContig.startY);
       }
     }
