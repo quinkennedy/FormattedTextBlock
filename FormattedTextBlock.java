@@ -157,9 +157,8 @@ public class FormattedTextBlock{ //<>//
     }
     
     //scale according to best fit
-    text = origText;
     for(int i = 0; i < text.length; i++){
-      text[i].fontSize *= bestFitScaleAmount;
+      text[i].fontSize = (int)(origText[i].fontSize * bestFitScaleAmount);
     }
     calculateLines(pg);
   }

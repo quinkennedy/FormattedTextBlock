@@ -2,7 +2,7 @@ PFont regular, bold;
 FormattedTextBlock bt;
 int margin = 10;
 int bottomMargin = 40;
-int updateDelayMs = 5000; //millis
+int updateDelayMs = 3000; //millis
 int lastUpdate = -updateDelayMs;
 String sourceText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "+
 "Fusce ac venenatis nisl. Ut a fermentum elit, sit amet tristique purus. "+
