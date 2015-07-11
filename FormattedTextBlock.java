@@ -6,6 +6,7 @@ public class FormattedTextBlock{ //<>//
   FormattedText[] text;
   int maxWidth;
   ArrayList<FormattedLine> lines;
+  int totalHeight;
   
   public FormattedTextBlock(FormattedText[] text, int maxWidth, PGraphics pg){
     this.text = text;
@@ -16,10 +17,6 @@ public class FormattedTextBlock{ //<>//
   //split the formatted text into separate lines of text
   //based on computed text lengths and given maximum text block width
   private void calculateLines(PGraphics pg){
-    //TODO:
-    // - Split on newlines
-    // - calculate x/y pos of each line
-    //   - pay attention to textHeight/textAscent/textDescent
     //all the lines
     lines = new ArrayList<FormattedLine>();
     //the current line we are populating
@@ -30,23 +27,25 @@ public class FormattedTextBlock{ //<>//
     //the current text that can concatenate on the current line
     //but has not yet been committed
     String contig = "";
-    //activate PGraphics element so we can query it 
-    //for text widths
-    pg.beginDraw();
+    int prevDescent = 0, currDescent = 0, currAscent = 0, currY = 0;
+    FormattedText tempText;
     
     //for each formatted text element
     for(int ti = 0; ti < text.length; ti++){
       FormattedText currT = text[ti];
       //set the PGraphics font for accurate width calculation
-      pg.textFont(currT.font);
-      //DEBUG
-      System.out.println(currT.toString());
-      System.out.println(currT.font);
+      pg.textFont(currT.font, currT.fontSize);
       
       //split the formatted text into words
       SplitText[] words = currT.split();
       //for each word
       for(int wi = 0; wi < words.length; wi++){
+        currDescent = (int)Math.max(currDescent, Math.ceil(pg.textDescent()));
+        if (pg.textAscent() > currAscent){
+          currY += pg.textAscent() - currAscent;
+          updateLineAscent(line, currY);
+          currAscent = (int)Math.ceil(pg.textAscent());
+        }
         SplitText currW = words[wi];
         //get the width of the uncommitted text along with
         //the current word we are testing
@@ -54,43 +53,79 @@ public class FormattedTextBlock{ //<>//
         // and seen separators (hyphens)
         float contigWidth = pg.textWidth(contig + currW.text);
         float contigNsepWidth = pg.textWidth(contig + currW.toString());
-        //DEBUG
-        System.out.println(contigWidth +" " + contigNsepWidth);
         
         //if the word doesn't fit
         if (currWidth + contigWidth > maxWidth){
-          if (currWidth == 0 && contig.length() == 0){
-            //one word alone on the line
-            line.add(new FormattedText(currW.toString(), currT.font));
-            line = newLine(lines);
-            continue;
-          } else if (contig.length() > 0){
-            //there is un-committed text
-            line.add(new FormattedText(contig, currT.font));
-            contig = currW.toString();
-            line = newLine(lines);
-            currWidth = 0;
-          } else {
-            //I guess this line is full & fully committed
-            contig = currW.toString();
-            line = newLine(lines);
-            currWidth = 0;
+          //commit all un-committed text
+          if (contig.length() > 0){
+            tempText = new FormattedText(contig, currT.font, currT.fontSize);
+            line.add(tempText);
+            tempText.startX = currWidth;
+            tempText.startY = currY;
           }
-        } else {
-          //word does fit
-          contig += currW.toString();
+          //create the new line to fill
+          line = newLine(lines);
+          currWidth = 0;
+          currAscent = (int)Math.ceil(pg.textAscent());
+          currY += currDescent + currAscent;
+          prevDescent = currDescent;
+          currDescent = (int)Math.ceil(pg.textDescent());
+          contig = "";
+        }
+        //add this word to the un-committed text
+        contig += currW.toString();
+        //if we have a newline character, and have content on this line
+        if (currW.postSep.equals("\n") && (contig.length() > 0 || line.texts.size() > 0)){
+          //force a newline (unless we just did a newline)
+          
+          //commit text
+          //let's not include the newline character
+          if (contig.length() > 1){
+            tempText = new FormattedText(contig.substring(0, contig.length() - 1), currT.font, currT.fontSize);
+            line.add(tempText);
+            tempText.startX = currWidth;
+            tempText.startY = currY;
+          }
+          contig = "";
+          //start a new line
+          line = newLine(lines);
+          currWidth = 0;
+          currY += currDescent;
+          prevDescent = currDescent;
+          currAscent = 0;
+          currDescent = 0;
         }
       }
       //end of current FormattedText element
       //commit any uncommitted text
       if (contig.length() > 0){
-        line.add(new FormattedText(contig, currT.font));
+        tempText = new FormattedText(contig, currT.font, currT.fontSize);
+        line.add(tempText);
+        tempText.startX = currWidth;
+        tempText.startY = currY;
         currWidth += pg.textWidth(contig);
         contig = "";
       }
     }
-    //finished using this PGraphics element
-    pg.endDraw();
+    totalHeight = currY + currDescent;
+  }
+  
+  public void render(PGraphics g){
+    FormattedLine currLine;
+    for (int i = 0; i < lines.size(); i++) {
+      currLine = lines.get(i);
+      for (int w = 0; w < currLine.texts.size(); w++) {
+        FormattedText currContig = currLine.texts.get(w);
+        g.textFont(currContig.font);
+        g.text(currContig.text, currContig.startX, currContig.startY);
+      }
+    }
+  }
+  
+  private void updateLineAscent(FormattedLine line, int newY){
+    for(int i = 0; i < line.texts.size(); i++){
+      line.texts.get(i).startY = newY;
+    }
   }
   
   private FormattedLine newLine(ArrayList<FormattedLine> lines){
@@ -110,17 +145,27 @@ public class FormattedTextBlock{ //<>//
   public static class FormattedText{
     String text;
     PFont font;
+    int fontSize;
     float startX, startY;
     
     public FormattedText(String text, PFont font){
-      this.text = text;
-      this.font = font;
+      init(text, font, font.getSize());
+    }
+    
+    public FormattedText(String text, PFont font, int fontSize){
+      init(text, font, fontSize);
+    }
+    
+    private void init(String _text, PFont _font, int _fontSize){
+      this.text = _text;
+      this.font = _font;
+      this.fontSize = _fontSize;
     }
     
     public SplitText[] split(){
       String restText = text;
       int i;
-      char[] splitGlyphs = {' '};
+      char[] splitGlyphs = {' ', '\n'};
       ArrayList<SplitText> sText = new ArrayList<SplitText>();
       
       do{
@@ -139,6 +184,9 @@ public class FormattedTextBlock{ //<>//
     }
     
     private int indexOf(String s, char[] glyphs){
+      if (s == null){
+        return -1;
+      }
       int lowestIndex = -1;
       int currIndex;
       for(int i=0; i < glyphs.length; i++){
