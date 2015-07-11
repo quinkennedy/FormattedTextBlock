@@ -1,6 +1,7 @@
 PFont regular, bold;
 FormattedTextBlock bt;
 int margin = 10;
+int bottomMargin = 40;
 int updateDelayMs = 5000; //millis
 int lastUpdate = -updateDelayMs;
 String sourceText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "+
@@ -55,7 +56,7 @@ void draw(){
     PGraphics pg = createGraphics(width, height);
     pg.beginDraw();
     bt = new FormattedTextBlock(text, width-margin-margin, pg);
-    bt.constrainHeight(height-margin-margin, pg);
+    bt.constrainHeight(height-margin-bottomMargin, pg);
     pg.endDraw();
     lastUpdate = millis();
   }
@@ -68,15 +69,8 @@ void draw(){
 void drawBlockedText(){
   pushMatrix();
   translate(margin, margin);
-  textFont(regular);
-  noFill();
-  stroke(255);
-  rect(0, 0, width-margin-margin, height-margin-margin);
-  stroke(0);
-  noFill();
-  rect(0, 0, bt.maxWidth, bt.totalHeight);
   noStroke();
   fill(0);
-  bt.render(g);
+  bt.render(g, true);
   popMatrix();
 }

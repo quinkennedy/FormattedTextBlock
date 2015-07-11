@@ -6,7 +6,7 @@ public class FormattedTextBlock{ //<>//
   FormattedText[] text;
   int maxWidth;
   ArrayList<FormattedLine> lines;
-  int totalHeight;
+  int totalHeight, constrainHeight;
   
   public FormattedTextBlock(FormattedText[] text, int maxWidth, PGraphics pg){
     this.text = text;
@@ -111,25 +111,73 @@ public class FormattedTextBlock{ //<>//
   }
   
   public void constrainHeight(int maxHeight, PGraphics pg){
+    constrainHeight = maxHeight;
+    if (totalHeight <= maxHeight){
+      //already fits!
+      return;
+    }
+    //backup original text
+    FormattedText[] origText = text;
+    text = new FormattedText[text.length];
+    for(int i = 0; i < text.length; i++){
+      text[i] = new FormattedText(origText[i].text, origText[i].font, origText[i].fontSize);
+    }
+    
     boolean nochange = false;
-    while(totalHeight > maxHeight && !nochange){
+    int lastChange = 0;
+    double scaleAmount = 1;
+    double lastAdjust = 1;
+    double bestFitScaleAmount = 1;
+    boolean didFit = false;
+    int limit = 100;
+    int iterations = 0;
+    while(!nochange && iterations < limit){
+      iterations++;
       nochange = true;
-      float overby = Math.min(totalHeight / (float)maxHeight, 2);
+      if (totalHeight > maxHeight){
+        if (!didFit){
+          bestFitScaleAmount = scaleAmount;
+        }
+        lastAdjust /= 2;
+        scaleAmount -= lastAdjust;
+      } else {
+        didFit = true;
+        bestFitScaleAmount = scaleAmount;
+        lastAdjust /= 2;
+        scaleAmount += lastAdjust;
+      }
       for(int i = 0; i < text.length; i++){
         int lastSize = text[i].fontSize;
-        text[i].fontSize /= overby;
-        if (text[i].fontSize == lastSize && text[i].fontSize > 1){
-          text[i].fontSize--;
-        }
+        text[i].fontSize = (int)(origText[i].fontSize * scaleAmount);
         nochange &= (text[i].fontSize == lastSize);
       }
       if (!nochange){
         calculateLines(pg);
       }
     }
+    
+    //scale according to best fit
+    text = origText;
+    for(int i = 0; i < text.length; i++){
+      text[i].fontSize *= bestFitScaleAmount;
+    }
+    calculateLines(pg);
   }
   
   public void render(PGraphics g){
+    render(g, false);
+  }
+  
+  public void render(PGraphics g, boolean debug){
+    if (debug){
+      g.pushStyle();
+      g.noFill();
+      g.stroke(255);
+      g.rect(0, 0, maxWidth, constrainHeight);
+      g.stroke(0);
+      g.rect(0, 0, maxWidth, totalHeight);
+      g.popStyle();
+    }
     FormattedLine currLine;
     for (int i = 0; i < lines.size(); i++) {
       currLine = lines.get(i);
